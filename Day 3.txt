@@ -531,28 +531,128 @@ RESTfull API with Laravel
 		}
 	}
 
+16. Create REST API Routes. Edit routes/api.php
+
+	<?php
+
+	use Illuminate\Http\Request;
+	use Illuminate\Support\Facades\Route;
+
+	use App\Http\Controllers\API\AuthController;
+	use App\Http\Controllers\API\BlogController;
+
+	/*
+	|--------------------------------------------------------------------------
+	| API Routes
+	|--------------------------------------------------------------------------
+	*/
+
+	Route::post('login', [AuthController::class, 'signin']);
+	Route::post('register', [AuthController::class, 'signup']);
+
+	Route::middleware('auth:sanctum')->group(function () {
+		Route::resource('blogs', BlogController::class);
+	});
 
 
+17. Startup
 
+	$ cd C:\labs\restexample4
+	$ php artisan serve
 
+18. Test Register API
 
+	URI 	: http://localhost:8000/api/register
+	METHOD 	: POST
+	Body -> form-data
+	
+		name				harbud
+		email				hari.budisantoso@gmail.com
+		password 			admin123
+		confirm_password	admin123
 
+	{
+		"success": true,
+		"data": {
+			"token": "1|mJAUTj0ChV5wr16HcH8C5bafM6EQSRst53z1env4",
+			"name": "harbud"
+		},
+		"message": "User created successfully."
+	}
+	
+19. Test Login API
 
+	URI 	: http://localhost:8000/api/login
+	METHOD 	: POST
+	Body -> form-data
+	
+		email				hari.budisantoso@gmail.com
+		password 			admin123
 
+	{
+		"success": true,
+		"data": {
+			"token": "2|F9D5DVMaMT50la8mg4KLGza9AmPwuJzyFONjmnVn",
+			"name": "harbud"
+		},
+		"message": "User signed in"
+	}
 
+20. Set Authorization Token
+	- Pilih tab Authorization
+	- Pilih 'Bearer Token'
+	- Tambahkan token yg kita dapat sebelumnya
 
+21. Buat tiga buah artikel di blog
 
+	URI 	: http://localhost:8000/api/blogs
+	METHOD 	: POST
+	Body -> form-data
+	
+		title			title 1
+		description		description 1
 
+22. Tampilkan semua
 
+	URI 	: http://localhost:8000/api/blogs
+	METHOD 	: GET
 
+23. Tampilkan single post
 
+	URI 	: http://localhost:8000/api/blogs/2
+	METHOD 	: GET
+	
+24. Test Update
 
+	URI 	: http://localhost:8000/api/blogs/2
+	METHOD 	: PUT
+	Params
+		
+		title			title 2 - Update
+		description		description 2 - Update
 
+	{
+		"success": true,
+		"data": {
+			"id": 2,
+			"title": "title 2 - Update",
+			"description": "description 2 - Update",
+			"created_at": "12/22/2021",
+			"updated_at": "12/22/2021"
+		},
+		"message": "Post updated."
+	}
 
+25. Test Delete
 
+	URI 	: http://localhost:8000/api/blogs/2
+	METHOD 	: DELETE
 
-
-
+	{
+		"success": true,
+		"data": [],
+		"message": "Post deleted."
+	}
 
 
 
