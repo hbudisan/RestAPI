@@ -1,0 +1,564 @@
+RESTfull API with Laravel
+
+01. Download composer
+
+	https://getcomposer.org/
+	
+02. Install composer (Composer-Setup.exe)
+	- Check "Add this PHP to your path"
+
+03. Create project 
+
+	$ cd c:\labs
+	$ composer global require laravel/installer
+	$ laravel new restexample3
+	
+	Buka folder restexample3 menggunakan VS Code
+	
+04. Startup
+ 
+	$ cd c:\labs\restexample3
+	$ php artisan serve
+	
+		Starting Laravel development server: http://127.0.0.1:8000
+		[Wed Dec 22 09:50:23 2021] PHP 8.0.6 Development Server (http://127.0.0.1:8000) started
+		
+05. Create Database : laraveldb
+	- Startup Database : xampp control
+
+06. Edit .env
+
+	DB_CONNECTION=mysql
+	DB_HOST=127.0.0.1
+	DB_PORT=3306
+	DB_DATABASE=laraveldb
+	DB_USERNAME=root
+	DB_PASSWORD=
+
+07. Buat model Animal
+
+	$ cd c:\labs\restexample3
+	$ php artisan make:model Animal -m
+	
+		Model created successfully.
+		Created Migration: 2021_12_22_030038_create_animals_table	
+
+06. Edit 2021_12_22_030038_create_animals_table.php
+
+	...
+    public function up()
+    {
+        Schema::create('animals', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
+        });
+    }
+	...
+	
+07. Run migrations
+
+	$ cd c:\labs\restexample3
+	$ php artisan migrate	
+
+08. Buat Animal Controller
+
+	$ cd c:\labs\restexample3
+	$ php artisan make:controller AnimalsController --resource	
+	
+09. Edit routes\api.php
+
+	Route::resource('animals', 'App\Http\Controllers\AnimalsController');
+
+10. Insert beberapa hewan kedalam table animals
+
+	insert into animals(name)
+	values 
+	   ('Sapi'),
+	   ('Kerbau'),
+  	   ('Kucing'),
+	   ('Ayam'),
+	   ('Kuda'),
+	   ('Domba');
+		 
+    select * from animals;
+	
+=== GET Request ===
+	
+01. Edit App\Http\Controllers\AnimalsController
+
+    public function index()
+    {
+        $animals = Animal::get();
+        return response()->json($animals);
+    }
+
+02. Test di Web Browser + Postman
+
+	URI 	: http://127.0.0.1:8000/api/animals
+	Method 	: GET
+
+03. Edit App\Http\Controllers\AnimalsController
+
+	...
+    public function show($id)
+    {
+        $item = Animal::find($id);
+        return response()->json($item);
+    }
+	...
+	
+04. Test di Web Browser + Postman
+
+	URI 	: http://127.0.0.1:8000/api/animals/3
+	Method 	: GET
+
+=== POST Request ===
+
+01. Artisan Route List
+
+	$ cd c:\labs\restexample3
+	$ php artisan route:list	
+
+		+--------+-----------+---------------------------+-----------------+------------------------------------------------------------+------------+
+		| Domain | Method    | URI                       | Name            | Action                                                     | Middleware |
+		+--------+-----------+---------------------------+-----------------+------------------------------------------------------------+------------+
+		|        | GET|HEAD  | /                         |                 | Closure                                                    | web        |
+		|        | GET|HEAD  | api/animals               | animals.index   | App\Http\Controllers\AnimalsController@index               | api        |
+		|        | POST      | api/animals               | animals.store   | App\Http\Controllers\AnimalsController@store               | api        |
+		|        | GET|HEAD  | api/animals/create        | animals.create  | App\Http\Controllers\AnimalsController@create              | api        |
+		|        | GET|HEAD  | api/animals/{animal}      | animals.show    | App\Http\Controllers\AnimalsController@show                | api        |
+		|        | PUT|PATCH | api/animals/{animal}      | animals.update  | App\Http\Controllers\AnimalsController@update              | api        |
+		|        | DELETE    | api/animals/{animal}      | animals.destroy | App\Http\Controllers\AnimalsController@destroy             | api        |
+		|        | GET|HEAD  | api/animals/{animal}/edit | animals.edit    | App\Http\Controllers\AnimalsController@edit                | api        |
+		|        | GET|HEAD  | sanctum/csrf-cookie       |                 | Laravel\Sanctum\Http\Controllers\CsrfCookieController@show | web        |
+		+--------+-----------+---------------------------+-----------------+------------------------------------------------------------+------------+
+
+02. - Hapus fungsi : create()
+	- Hapus fungsi : edit($id)
+
+03. Edit App\Http\Controllers\AnimalsController
+
+	use Illuminate\Support\Facades\Validator;
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return ['response' => $validator->errors(), 'success' => false];
+        }
+    }
+
+04. Test
+
+	URI 	: http://127.0.0.1:8000/api/animals/
+	Method 	: POST
+
+	{
+		"response": {
+			"name": [
+				"The name field is required."
+			]
+		},
+		"success": false
+	}
+	
+05. Edit App\Http\Controllers\AnimalsController
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return ['response' => $validator->errors(), 'success' => false];
+        }
+
+        $animal = new Animal();
+        $animal->name = $request->input('name');
+        $animal->save();
+
+        return response()->json($animal);
+    }
+
+05. Test
+
+	URI 	: http://127.0.0.1:8000/api/animals/
+	Method 	: POST
+	Body -> form-data
+	
+		key   : name
+		value : monyet
+
+	{
+		"name": "monyet",
+		"updated_at": "2021-12-22T04:12:26.000000Z",
+		"created_at": "2021-12-22T04:12:26.000000Z",
+		"id": 7
+	}
+
+=== PUT Request ===
+
+01. Edit App\Http\Controllers\AnimalsController
+
+    public function update(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return ['response' => $validator->errors(), 'success' => false];
+        }
+
+        $animal = Animal::find($id);
+        $animal->name = $request->input('name');
+        $animal->save();
+
+        return response()->json($animal);
+    }
+
+02. Test
+
+	URI 	: http://127.0.0.1:8000/api/animals/7
+	Method 	: PUT
+	Params
+	
+		key   : name
+		value : Keong Racun
+
+=== DELETE Request ===
+
+01. Edit App\Http\Controllers\AnimalsController
+
+    public function destroy($id)
+    {
+        $animal = Animal::find($id);
+        $animal->delete();
+
+        return ['response' => 'Animal deleted', 'success' => true];
+    }
+	
+02. Test
+
+	URI 	: http://127.0.0.1:8000/api/animals/7
+	Method 	: DELETE
+
+	{
+		"response": "Animal deleted",
+		"success": true
+	}
+	
+=== Laravel Sanctum ===
+
+01. Create laravel project
+
+	$ cd c:\labs
+	$ composer create-project --prefer-dist laravel/laravel restexample4
+
+02. Create database : sanctum
+
+	DB_CONNECTION=mysql
+	DB_HOST=127.0.0.1
+	DB_PORT=3306
+	DB_DATABASE=sanctum
+	DB_USERNAME=root
+	DB_PASSWORD=
+	
+03. Install laravel sanctum package
+
+	$ cd c:\labs\restexample4
+	$ composer require laravel/sanctum
+
+04. Setting up sanctum
+
+	$ cd c:\labs\restexample4
+	$ php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+
+		Copied Directory [\vendor\laravel\sanctum\database\migrations] To [\database\migrations]
+		Publishing complete.
+
+05. Edit app/Http/Kernel.php
+	- uncomment \Laravel\Sanctum
+
+	...
+        'api' => [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            'throttle:api',
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        ],
+	...
+	
+06. Generate sanctum table
+
+	$ cd c:\labs\restexample4
+	$ php artisan migrate	
+
+07. Create Blog model
+
+	$ cd c:\labs\restexample4
+	$ php artisan make:model Blog -m
+
+		Model created successfully.
+		Created Migration: 2021_12_22_061602_create_blogs_table
+
+08. Edit 2021_12_22_061602_create_blogs_table.php
+
+    public function up()
+    {
+        Schema::create('blogs', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->string('description');
+            $table->timestamps();
+        });
+    }
+
+09. Edit app/Models/Blog.php
+
+	class Blog extends Model
+	{
+		use HasFactory;
+
+		protected $fillable = [
+			'title',
+			'description'
+		];
+	}
+
+10. Run database migration
+
+	$ cd c:\labs\restexample4
+	$ php artisan migrate	
+
+		Migrating: 2021_12_22_061602_create_blogs_table
+		Migrated:  2021_12_22_061602_create_blogs_table (28.75ms)
+
+11. Build API Resource
+
+	$ cd c:\labs\restexample4
+	$ php artisan make:resource Blog	
+
+12. Edit app/Http/Resources/Blog.php
+
+    public function toArray($request)
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'description' => $this->description,
+            'created_at' => $this->created_at->format('m/d/Y'),
+            'updated_at' => $this->updated_at->format('m/d/Y'),
+        ];
+    }
+	
+13. Buat 3 buah Controller di app/Http/Controllers
+	- Buat API directory di folder Controllers
+	- Didalam folder API, buat 3 buah controller:
+		- AuthController.php
+		- BaseController.php
+		- BlogController.php
+
+14. Edit app/Http/Controllers/API/BaseController.php
+
+	<?php
+
+	namespace App\Http\Controllers\API;
+	use Illuminate\Http\Request;
+	use App\Http\Controllers\Controller as Controller;
+
+
+	class BaseController extends Controller
+	{
+
+		public function sendResponse($result, $message)
+		{
+			$response = [
+				'success' => true,
+				'data'    => $result,
+				'message' => $message,
+			];
+
+			return response()->json($response, 200);
+		}
+
+
+		public function sendError($error, $errorMessages = [], $code = 404)
+		{
+			$response = [
+				'success' => false,
+				'message' => $error,
+			];
+
+			if(!empty($errorMessages)){
+				$response['data'] = $errorMessages;
+			}
+
+			return response()->json($response, $code);
+		}
+	}
+
+15. Edit app/Http/Controllers/API/AuthController.php
+	- ABAIKAN WARNA MERAH di ->createToken(
+	
+	<?php
+	   
+	namespace App\Http\Controllers\API;
+	   
+	use Illuminate\Http\Request;
+	use App\Http\Controllers\API\BaseController as BaseController;
+	use Illuminate\Support\Facades\Auth;
+	use Illuminate\Support\Facades\Validator;
+	use App\Models\User;
+	   
+	class AuthController extends BaseController
+	{
+
+		public function signin(Request $request)
+		{
+			if(Auth::attempt(['email' => $request->email, 
+			                  'password' => $request->password])){ 
+				$authUser = Auth::user(); 
+				$success['token'] =  
+				      $authUser->createToken('MyAuthApp')->plainTextToken; 
+				$success['name'] =  $authUser->name;
+	   
+				return $this->sendResponse($success, 'User signed in');
+			} 
+			else{ 
+				return $this->sendError('Unauthorised.', ['error'=>'Unauthorised']);
+			} 
+		}
+
+		public function signup(Request $request)
+		{
+			$validator = Validator::make($request->all(), [
+				'name' => 'required',
+				'email' => 'required|email',
+				'password' => 'required',
+				'confirm_password' => 'required|same:password',
+			]);
+	   
+			if($validator->fails()){
+				return $this->sendError('Error validation', $validator->errors());       
+			}
+	   
+			$input = $request->all();
+			$input['password'] = bcrypt($input['password']);
+			$user = User::create($input);
+			$success['token'] =  $user->createToken('MyAuthApp')->plainTextToken;
+			$success['name'] =  $user->name;
+	   
+			return $this->sendResponse($success, 'User created successfully.');
+		}
+	   
+	}
+
+15. Edit app/Http/Controllers/API/BlogController.php
+
+	<?php
+	   
+	namespace App\Http\Controllers\API;
+	   
+	use Illuminate\Http\Request;
+	use App\Http\Controllers\API\BaseController as BaseController;
+	use Illuminate\Support\Facades\Validator;
+	use App\Models\Blog;
+	use App\Http\Resources\Blog as BlogResource;
+	   
+	class BlogController extends BaseController
+	{
+		public function index()
+		{
+			$blogs = Blog::all();
+			return $this->sendResponse(BlogResource::collection($blogs), 
+			                           'Posts fetched.');
+		}
+		
+		public function store(Request $request)
+		{
+			$input = $request->all();
+			$validator = Validator::make($input, [
+				'title' => 'required',
+				'description' => 'required'
+			]);
+			if($validator->fails()){
+				return $this->sendError($validator->errors());       
+			}
+			$blog = Blog::create($input);
+			return $this->sendResponse(new BlogResource($blog), 'Post created.');
+		}
+
+	   
+		public function show($id)
+		{
+			$blog = Blog::find($id);
+			if (is_null($blog)) {
+				return $this->sendError('Post does not exist.');
+			}
+			return $this->sendResponse(new BlogResource($blog), 'Post fetched.');
+		}
+		
+
+		public function update(Request $request, Blog $blog)
+		{
+			$input = $request->all();
+
+			$validator = Validator::make($input, [
+				'title' => 'required',
+				'description' => 'required'
+			]);
+
+			if($validator->fails()){
+				return $this->sendError($validator->errors());       
+			}
+
+			$blog->title = $input['title'];
+			$blog->description = $input['description'];
+			$blog->save();
+			
+			return $this->sendResponse(new BlogResource($blog), 'Post updated.');
+		}
+	   
+		public function destroy(Blog $blog)
+		{
+			$blog->delete();
+			return $this->sendResponse([], 'Post deleted.');
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
