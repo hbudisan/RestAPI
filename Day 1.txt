@@ -1,0 +1,272 @@
+01. Install Postman
+	www.postman.com
+	
+02. External Restfull API
+	- https://sunrise-sunset.org
+	
+03. Test External Restfull API - 1
+	- Method : GET
+	- http://api.sunrise-sunset.org/json?lat=36&lng=-40
+	
+	Test di Web browser & Postman
+	
+04. Test External Restfull API - 1
+	- Method   : GET
+	- Googling : covid-19 api postman 
+	- https://documenter.getpostman.com/view/10808728/SzS8rjbc
+	
+	GET Default : https://api.covid19api.com/
+	
+	
+=== Configure Env. Labs ===
+
+01. Install Notepad++
+	- npp.7.9.5.Installer.x64.exe
+	
+02. Install XAMPP 
+    - xampp-windows-x64-8.0.6-0-VS16-installer.exe
+	- Select : Apache, MySQL, PHP
+	
+03. Startup Service
+	- Open XAMPP Control Panel
+	- Startup Apache Web Server + MySQL
+	
+04. Test Apache : http://localhost
+	Test PHP    : http://localhost/dashboard/phpinfo.php
+	
+05. Install Navicat
+	- navicat160_premium_en_x64.exe
+	
+06. Test MySQL Database
+	- Open Navicat
+	- Buat koneksi
+		- Connection Name : MySQL
+		- Host : localhost
+		- Port : 3306
+		- User Name : root
+		- Password  : <empty>
+		
+07. Install Visual Studio Code
+	- VSCodeSetup-x64-1.63.2.exe
+	
+08. Configure Visual Studio Code
+	- Enable : Mouse Wheel Zoom
+		- File -> Preferences -> Settings
+		- Search : zoom
+	- Install Extension : PHP Intelephense
+	- Disable Builtin PHP
+		- Search : @builtin php
+		- Disable "PHP Language Features"
+		- Biarkan Setting "PHP Languange Basics"
+	- Install Extension "Prettier Code Formatter"
+		- File -> Preferences -> Settings
+		- Search : format
+		- Enable : format on save
+		
+09. Test Snippet yg sudah ada
+	- Buat folder c:\labs
+	- Buat file c:\labs\test.html
+	- Test snippet : !
+
+10. Configure Snippet, utk PHP
+	File -> Preferences -> User Snippet
+		New Global Snippet File : php.json
+
+
+=== Configure Web Server Root Directory ===
+
+01. Buka XAMPP Control Panel
+	- Pilih Apache -> Config -> Apache (httpd.conf)
+	
+02. Edit 
+
+	DocumentRoot "C:/xampp/htdocs"
+	<Directory "C:/xampp/htdocs">
+	
+		Ubah jadi
+		
+	DocumentRoot "C:/labs"
+	<Directory "C:/labs">
+	
+03. Buat file c:\labs\index.php
+
+	<?php phpinfo(); ?>
+	
+04. Test
+	
+	http://localhost
+	
+=== PHP Restfull Web Service API ===
+
+01. Create folder 
+
+		c:\labs\restexample1
+		
+02. Create file : c:\labs\restexample1\Animal.php
+	
+	<?php
+
+	// A domain class to demonstrate RESTful API
+	class Animal
+	{
+
+		private $animals = array(
+			1 => 'Sapi',
+			2 => 'Kerbau',
+			3 => 'Kucing',
+			4 => 'Ayam',
+			5 => 'Kuda',
+			6 => 'Domba'
+		);
+
+		public function getAllAnimal()
+		{
+			return $this->animals;
+		}
+
+		public function getAnimal($id)
+		{
+			$animal = array($id => ($this->animals[$id]) ? $this->animals[$id] : $this->animals[1]);
+			return $animal;
+		}
+	}
+	
+03. Create file : c:\labs\restexample1\AnimalRestHandler.php	
+
+	<?php
+	
+	/*
+	404 => 'Not Found'
+	200 => 'OK'
+	*/	
+
+	require_once("Animal.php");
+
+	class AnimalRestHandler
+	{
+		function getAllAnimals()
+		{
+			$animal = new Animal();
+			$rawData = $animal->getAllAnimal();
+
+			if (empty($rawData)) {
+				$statusCode = 404;
+				$rawData = array('error' => 'No animals found');
+			} else {
+				$statusCode = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+
+		public function getAnimal($id)
+		{
+			$animal = new Animal();
+			$rawData = $animal->getAnimal($id);
+
+			if (empty($rawData)) {
+				$statusCode = 404;
+				$rawData = array('error' => 'No animals found');
+			} else {
+				$statusCode = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+	}
+
+	?>	
+	
+04. Create file : c:\labs\restexample1\RestController.php		
+	
+	<?php
+
+	require_once("AnimalRestHandler.php");
+
+	$view = "";
+	if (isset($_GET["view"]))
+		$view = $_GET["view"];
+
+	switch ($view) {
+		case "all":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->getAllAnimals();
+			break;
+		case "single":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->getAnimal($_GET["id"]);
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+
+	
+05. Test di Web Browser + Postman
+
+	http://localhost/restexample1/RestController.php?view=all
+	
+	http://localhost/restexample1/RestController.php?view=single&id=1
+	http://localhost/restexample1/RestController.php?view=single&id=5
+
+06. Create file : c:\labs\restexample1\.htaccess
+
+	# Turn rewrite engine on
+	Options +FollowSymlinks
+	RewriteEngine on
+	
+	# map neat url to internal url
+	RewriteRule ^animal/list/$ RestController.php?view=all [nc,qsa]
+    RewriteRule ^animal/list/([0-9]+)/$ RestController.php?view=single&id=$1 [nc,qsa]
+	
+	
+07. Test di Web Browser + Postman
+
+	http://localhost/restexample1/animal/list/
+	
+	http://localhost/restexample1/animal/list/1/
+	http://localhost/restexample1/animal/list/5/	
+	
+
+=== REST API CRUD using PHP ===
+
+01. Create Database : animaldb
+
+	Create Table animals (
+	  id int(3) unsigned auto_increment primary key,
+	  name varchar(30) not null
+	);
+
+02. Insert Data
+
+	insert into animals(name)
+	values 
+	   ('Sapi'),
+	   ('Kerbau'),
+  	   ('Kucing'),
+	   ('Ayam'),
+	   ('Kuda'),
+	   ('Domba');
+		 
+    select * from animals;
+
+03. Create folder c:\labs\restexample2
+
+04. Create file c:\labs\restexample2\dbcontroller.php
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+	

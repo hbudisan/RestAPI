@@ -1,0 +1,606 @@
+=== REST API CRUD using PHP (LANJUTAN) ===
+
+01. Create folder c:\labs\restexample2
+
+02. Create file c:\labs\restexample2\dbcontroller.php
+
+	<?php
+
+	class DBController
+	{
+		private $conn = "";
+		private $host = "localhost";
+		private $user = "root";
+		private $password = "";
+		private $database = "animaldb";
+
+		function __construct()
+		{
+			$conn = $this->connectDB();
+			if (!empty($conn)) {
+				$this->conn = $conn;
+			}
+		}
+
+		function connectDB()
+		{
+			$conn = mysqli_connect(
+				$this->host,
+				$this->user,
+				$this->password,
+				$this->database
+			);
+			return $conn;
+		}
+
+		function executeSelectQuery($query)
+		{
+			$result = mysqli_query($this->conn, $query);
+			while ($row = mysqli_fetch_assoc($result)) {
+				$resultset[] = $row;
+			}
+			if (!empty($resultset))
+				return $resultset;
+		}
+	}
+
+03. Create file c:\labs\restexample2\Animal.php
+
+	<?php
+
+	require_once("dbcontroller.php");
+
+	class Animal
+	{
+		private $animals = array();
+		public function getAllAnimal()
+		{
+			$query = 'SELECT * FROM animals';
+			$dbcontroller = new DBController();
+			$this->animals = $dbcontroller->executeSelectQuery($query);
+			return $this->animals;
+		}
+	}
+
+04. Create file c:\labs\restexample2\AnimalRestHandler.php
+
+	<?php
+
+	require_once("Animal.php");
+
+	class AnimalRestHandler
+	{
+		function getAllAnimals()
+		{
+			$animal = new Animal();
+			$rawData = $animal->getAllAnimal();
+
+			if (empty($rawData)) {
+				$statusCode = 404;
+				$rawData = array('error' => 'No animals found');
+			} else {
+				$statusCode = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+	}
+
+05. Create file c:\labs\restexample2\RestController.php
+
+	<?php
+
+	require_once("AnimalRestHandler.php");
+
+	$page_key = "";
+	if (isset($_GET["page_key"]))
+		$view = $_GET["page_key"];
+
+	switch ($page_key) {
+		case "list":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->getAllAnimals();
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+
+06. Test di Web Browser + Postman
+	- Start up mysql database
+	- Start up Apache Web Server
+
+	http://localhost/restexample2/RestController.php?page_key=list
+
+07. Create file c:\labs\restexample2\.htaccess
+
+	# Turn rewrite engine on
+	Options +FollowSymlinks
+	RewriteEngine on
+	
+	# map neat url to internal url
+	RewriteRule ^animal/list/$ RestController.php?page_key=list [nc,qsa]
+	RewriteRule ^animal/list$ RestController.php?page_key=list [nc,qsa]
+    
+08. Test di Web Browser + Postman
+
+	http://localhost/restexample2/animal/list/
+	http://localhost/restexample2/animal/list
+
+=== REST API CRUD : addAnimal ===
+
+01. Edit file c:\labs\restexample2\dbcontroller.php
+
+	<?php
+
+	class DBController
+	{
+		...
+
+		function executeQuery($query)
+		{
+			$conn = $this->connectDB();
+			$result = mysqli_query($conn, $query);
+			if (!$result) {
+				// check apakah ada duplicate entry
+				if ($conn->errno == 1062) {
+					return false;
+				} else {
+					trigger_error(mysqli_error($conn), E_USER_NOTICE);
+				}
+			}
+			$affectedRows = mysqli_affected_rows($conn);
+			return  $affectedRows;
+		}
+	}
+
+02. Edit file c:\labs\restexample2\Animal.php
+
+	...
+	class Animal
+	{
+		...
+
+		public function addAnimal()
+		{
+			if (isset($_POST['name'])) {
+				$name = $_POST['name'];
+				$query = "insert into animals(name) values (" . $name . ")";
+				$dbcontroller = new DBController();
+				$result = $dbcontroller->executeQuery($query);
+				if ($result != 0) {
+					$result = array('success' => 1);
+					return $result;
+				}
+			}
+		}
+	}
+
+03. Edit file c:\labs\restexample2\AnimalRestHandler.php
+
+	...
+
+	class AnimalRestHandler
+	{
+		...
+
+		function add()
+		{
+			$animal = new Animal();
+			$rawData = $animal->addAnimal();
+			if (empty($rawData)) {
+				$statusCode = 404;
+				$rawData = array('success' => 0);
+			} else {
+				$statusCode = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+	}
+
+04. Edit file c:\labs\restexample2\RestController.php
+
+	...
+
+	switch ($page_key) {
+		...
+		
+		case "create":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->add();
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+
+05. Test di Postman
+
+	http://localhost/restexample2/RestController.php?page_key=create
+
+	METHOD : POST
+	
+	Pilih Body => form-data
+	- key   : name
+	- value : Kelinci 
+
+06. Edit file c:\labs\restexample2\.htaccess
+
+	...
+
+	RewriteRule ^animal/create/$ RestController.php?page_key=create [L]
+	RewriteRule ^animal/create$ animal/create/ [L,R=301]	
+
+07. Test di Postman
+
+	http://localhost/restexample2/animal/create/
+	http://localhost/restexample2/animal/create
+
+	METHOD : POST
+	
+	Pilih Body => form-data
+	- key   : name
+	- value : Kutu 
+
+=== REST API CRUD : editAnimal ===
+
+01. Edit file c:\labs\restexample2\Animal.php
+
+	...
+	
+	class Animal
+	{
+
+		...
+
+		public function editAnimal()
+		{
+			if (isset($_POST['name']) && isset($_GET['id'])) {
+				$name = $_POST['name'];
+				$query = "update animals set name = '" . $name
+					. "' where id =" . $_GET['id'];
+			}
+			$dbcontroller = new DBController();
+			$result = $dbcontroller->executeQuery($query);
+			if ($result != 0) {
+				$result = array('success' => 1);
+				return $result;
+			}
+		}
+	}
+
+02. Edit file c:\labs\restexample2\AnimalRestHandler.php
+
+	...
+
+	class AnimalRestHandler
+	{
+		...
+
+		function editAnimalById()
+		{
+			$animal = new Animal();
+			$rawData = $animal->editAnimal();
+			if (empty($rawData)) {
+				$status_code = 404;
+				$rawData = array('success' => 0);
+			} else {
+				$status_code = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+	}
+
+03. Edit file c:\labs\restexample2\RestController.php
+
+	...
+
+	switch ($page_key) {
+		...
+		
+		case "update":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->editAnimalById();
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+
+04. Test di Postman
+	- Cari dulu id animal yg mau diupdate
+	
+		http://localhost/restexample2/animal/list
+		
+		Method : GET
+		
+	- Update berdasarkan id yg didapat dilangkah sebelumnya
+	
+		http://localhost/restexample2/RestController.php?page_key=update&id=4
+		
+		Method : POST
+
+			Pilih Body => form-data
+			- key   : name
+			- value : Puyuh 
+
+05. Edit file c:\labs\restexample2\.htaccess
+
+	...
+
+	RewriteRule ^animal/update/([0-9]+)/$ RestController.php?page_key=update&id=$1 [L]	
+
+06. Test di Postman
+
+	- Cari dulu id animal yg mau diupdate
+	
+		http://localhost/restexample2/animal/list
+		
+		Method : GET
+		
+	- Update berdasarkan id yg didapat dilangkah sebelumnya
+	
+		http://localhost/restexample2/animal/update/4/
+		
+		Method : POST
+
+			Pilih Body => form-data
+			- key   : name
+			- value : Merpati 	
+
+=== REST API CRUD : deleteAnimal ===
+
+01. Edit file c:\labs\restexample2\Animal.php
+
+	...
+	class Animal
+	{
+		...
+
+		public function deleteAnimal()
+		{
+			if (isset($_GET['id'])) {
+				$id = $_GET['id'];
+				$query = "delete from animals where id=" . $id;
+				$dbcontroller = new DBController();
+				$result = $dbcontroller->executeQuery($query);
+				if ($result != 0) {
+					$result = array('success' => 1);
+					return $result;
+				}
+			}
+		}
+	}
+
+02. Edit file c:\labs\restexample2\AnimalRestHandler.php
+
+	...
+	class AnimalRestHandler
+	{
+		...
+		
+		function deleteAnimalById()
+		{
+			$animal = new Animal();
+			$rawData = $animal->deleteAnimal();
+
+			if (empty($rawData)) {
+				$status_code = 404;
+				$rawData = array('success' => 0);
+			} else {
+				$status_code = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+	}
+
+03. Edit file c:\labs\restexample2\RestController.php
+
+	...
+	switch ($page_key) {
+		...
+		case "delete":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->deleteAnimalById();
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+
+04. Test di Web Browser + Postman
+
+	- Cari dulu id animal yg mau didelete
+	
+		http://localhost/restexample2/animal/list
+		
+		Method : GET
+		
+	- Delete berdasarkan id yg didapat dilangkah sebelumnya
+
+		http://localhost/restexample2/RestController.php?page_key=delete&id=4
+
+05. Edit file c:\labs\restexample2\.htaccess
+
+	...
+
+	RewriteRule ^animal/delete/([0-9]+)/$ RestController.php?page_key=delete&id=$1 [L]	
+	
+06. Test di Web Browser + Postman
+
+	- Cari dulu id animal yg mau didelete
+	
+		http://localhost/restexample2/animal/list
+		
+		Method : GET
+		
+	- Delete berdasarkan id yg didapat dilangkah sebelumnya
+
+		http://localhost/restexample2/animal/delete/9/
+	
+=== REST API CRUD : searchAnimalById ===	
+	
+01. Edit file c:\labs\restexample2\Animal.php
+	
+	...
+	class Animal
+	{
+
+		...
+		public function searchAnimalById()
+		{
+			if (isset($_GET['id'])) {
+				$id = $_GET['id'];
+				$query = 'SELECT * FROM animals WHERE id=' . $id;
+			} else {
+				$query = 'SELECT * FROM animals';
+			}
+
+			$dbcontroller = new DBController();
+			$this->animals = $dbcontroller->executeSelectQuery($query);
+			return $this->animals;
+		}
+	}
+	
+02. Edit file c:\labs\restexample2\AnimalRestHandler.php
+
+	...
+	class AnimalRestHandler
+	{
+		...
+		function searchAnimalById()
+		{
+			$animal = new Animal();
+			$rawData = $animal->searchAnimalById();
+
+			if (empty($rawData)) {
+				$status_code = 404;
+				$rawData = array('error' => 'No Animal found!');
+			} else {
+				$status_code = 200;
+			}
+
+			$response = json_encode($rawData);
+			echo $response;
+		}
+	}
+	
+03. Edit file c:\labs\restexample2\RestController.php	
+	
+	...
+	switch ($page_key) {
+		...
+		case "search_id":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->searchAnimalById();
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+	
+04. Test di postman + Web Browser
+
+	http://localhost/restexample2/RestController.php?page_key=search_id&id=2
+	
+		[{"id":"2","name":"Keledai"}]
+	
+	http://localhost/restexample2/RestController.php?page_key=search_id&id=99 
+	
+		{"error":"No Animal found!"}
+		
+	http://localhost/restexample2/RestController.php?page_key=search_id
+	
+		[{"id":"1","name":"Sapi"},{"id":"2","name":"Keledai"},{"id":"5","name":"Kakaktua"},{"id":"6","name":"Domba"},{"id":"7","name":"Kelinci"},{"id":"8","name":"Naga"}]	
+	
+
+=== REST API CRUD : searchAnimalByName ===	
+	
+01. Edit file c:\labs\restexample2\Animal.php
+
+    public function searchAnimalByName()
+    {
+        if (isset($_GET['name'])) {
+            $name = $_GET['name'];
+            $query = "SELECT * FROM animals WHERE name like '%" . $name . "%'";
+        } else {
+            $query = 'SELECT * FROM animals';
+        }
+
+        $dbcontroller = new DBController();
+        $this->animals = $dbcontroller->executeSelectQuery($query);
+        return $this->animals;
+    }
+	
+02. Edit file c:\labs\restexample2\AnimalRestHandler.php
+
+    function searchAnimalByName()
+    {
+        $animal = new Animal();
+        $rawData = $animal->searchAnimalByName();
+
+        if (empty($rawData)) {
+            $status_code = 404;
+            $rawData = array('error' => 'No Animal found!');
+        } else {
+            $status_code = 200;
+        }
+
+        $response = json_encode($rawData);
+        echo $response;
+    }
+
+03. Edit file c:\labs\restexample2\RestController.php	
+
+	...
+		case "search_name":
+			$animalRestHandler = new AnimalRestHandler();
+			$animalRestHandler->searchAnimalByName();
+			break;
+		case "":
+			// 404 : Not Found
+			break;
+	}
+
+04. Test di postman + Web Browser
+
+	http://localhost/restexample2/RestController.php?page_key=search_name&name=K
+	
+		[{"id":"2","name":"Keledai"},{"id":"5","name":"Kakaktua"},{"id":"7","name":"Kelinci"}]
+	
+	http://localhost/restexample2/RestController.php?page_key=search_name&name=Z
+	
+		{"error":"No Animal found!"}
+		
+	http://localhost/restexample2/RestController.php?page_key=search_id
+
+		[{"id":"1","name":"Sapi"},{"id":"2","name":"Keledai"},{"id":"5","name":"Kakaktua"},{"id":"6","name":"Domba"},{"id":"7","name":"Kelinci"},{"id":"8","name":"Naga"}]	
+
+====================================================
+
+Web Service :
+- REST : Representational State Transfer
+- SOAP : Simple Object Access Protocol
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
